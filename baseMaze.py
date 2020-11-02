@@ -1,3 +1,5 @@
+#Christina Torres
+
 import turtle
 import math
 import random
@@ -17,6 +19,9 @@ discount = 0.9
 
 dif_actions = [0,1,2,3]
 
+table_rows = 8
+table_cols = 8
+q_vals = np.zeros((table_rows, table_cols,4))
 
 class Maze(object):
     def __init__(self, maze, runner = (0,0)):
@@ -155,19 +160,6 @@ class Maze(object):
         return valid_actions
        
        
-       
-           
-
-maze =[
-    [ 1.0,  0.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0],
-    [ 1.0,  0.0,  1.0,  1.0,  1.0,  0.0,  1.0,  1.0],
-    [ 1.0,  1.0,  1.0,  1.0,  0.0,  1.0,  0.0,  1.0],
-    [ 1.0,  1.0,  1.0,  0.0,  1.0,  1.0,  1.0,  1.0],
-    [ 1.0,  1.0,  0.0,  1.0,  1.0,  1.0,  1.0,  1.0],
-    [ 1.0,  1.0,  1.0,  0.0,  1.0,  0.0,  0.0,  0.0],
-    [ 1.0,  1.0,  1.0,  0.0,  1.0,  1.0,  1.0,  1.0],
-    [ 1.0,  1.0,  1.0,  1.0,  0.0,  1.0,  1.0,  1.0]
-]
 
 
 def create_maze(maze):
@@ -195,55 +187,10 @@ def create_maze(maze):
 
 ##########################################################################################
 
-# <-- delete left most '#'
-
-#class Experience(object):
-#    def __init__(self,maze, max_memory=100, discount=0.95):
-#        self.max_memory = max_memory
-#        self.discount = discount
-#        self.memory = list()
-       # self.num_actions = model.output_shape[-1]
-
-#    def remember(self, episode):
-        # episode = [envstate, action, reward, envstate_next, game_over]
-        # memory[i] = episode
-        # envstate == flattened 1d maze cells info, including rat cell (see method: observe)
-#        self.memory.append(episode)
-#        if len(self.memory) > self.max_memory:
-#            del self.memory[0]
-
-#    def predict(self, envstate):
-        #return self.model.predict(envstate)[0]
-#        envstate=maze.check_state()
-
-#    def get_data(self, data_size=10):
-#        env_size = self.memory[0][0].shape[1]   # envstate 1d size (1st element of episode)
-#        mem_size = len(self.memory)
-#        data_size = min(mem_size, data_size)
-#        inputs = np.zeros((data_size, env_size))
-#        targets = np.zeros((data_size, self.num_actions))
-#        for i, j in enumerate(np.random.choice(range(mem_size), data_size, replace=False)):
-#            envstate, action, reward, envstate_next, game_over = self.memory[j]
-#            inputs[i] = envstate
-            # There should be no target values for actions not taken.
-#            targets[i] = self.predict(envstate)
-            # Q_sa = derived policy = max quality env/action = max_a' Q(s', a')
-#            Q_sa = np.max(self.predict(envstate_next))
-#            if game_over:
-#                targets[i, action] = reward
-#            else:
-                # reward + gamma * max_a' Q(s', a')
-#                targets[i, action] = reward + self.discount * Q_sa
-#        return inputs, targets
-
-
 
 ##########################################################################################
-def play_game(maze):
-    table_rows = 8
-    table_cols = 8
+def train_(maze):
 
-    q_vals = np.zeros((table_rows, table_cols,4))
 
     maze = Maze(maze)
     hist = []
@@ -304,11 +251,6 @@ def play_game(maze):
                 new_q_val = old_q_val + (learning_rate * temp)
                 q_vals[old_x, old_y, action] = new_q_val
 
-                # Store episode (experience)
-            #  episode = [prev_envstate, action, reward, envstate, game_over]
-            #  experience.remember(episode)
-            # n_episodes += 1
-
             
             # n_episodes += 1
                 episode_moves=episode_moves+1
@@ -325,6 +267,7 @@ def play_game(maze):
         win_count=0
         epoch_moves=0
         epoch_random=0
+    print("Trained!")
 
 
 def get_next_action(maze, q_vals, random_steps):
@@ -340,24 +283,51 @@ def get_next_action(maze, q_vals, random_steps):
         
 
 def get_shortest_path(maze):
-  #return immediately if this is an invalid starting location
-  cur_x,cur_y, mode = maze.state
-  x,y = maze._maze.shape
-  if cur_x == x-1 and cur_y == y-1:
-    is_terminal_state = True
-    return []
-  else: #if this is a 'legal' starting locationx
-    is_terminal_state = False
-    shortest_path = []
-    shortest_path.append([cur_x, cur_y])
-    #continue moving along the path until we reach the goal (i.e., the item packaging location)
-    while not is_terminal_state:
-      #get the best action to take
-      action_index = get_next_action(cur_x, cur_y, 1.)
-      #move to the next location on the path, and add the new location to the list
-      maze.moves(action_index)
-      cur_x,cur_y, mode = maze.state
-      shortest_path.append([cur_x, cur_y])
-    return shortest_path
+    train_(maze)
+    maze = Maze(maze)
+    runner_cell = (0, 0)
+    maze.restart(runner_cell)
+    game_over = False
 
-play_game(maze)
+    # get initial envstate (1d flattened canvas)
+    envstate = maze.check_state()
+    _moves =0
+
+# n_episodes = 0
+    while not game_over:
+        valid_actions = maze.check_move()
+        if not valid_actions: break
+        #prev_envstate = envstate
+        cur_x, cur_y, mode = maze.state
+        action = np.argmax(q_vals[cur_x, cur_y])
+    
+        # Apply action, get reward and new envstate
+        envstate, reward, game_status = maze.moves(action)
+        if game_status == 'Winner':
+            print("Win!")
+            game_over = True
+        elif game_status == 'Lost':
+            print("Loser!")
+            game_over = True
+        else:
+            game_over = False
+
+        _moves=_moves+1
+        create_maze(maze)
+    
+    #create_maze(maze)
+    print("Steps: ", _moves)
+
+
+maze1 =[
+    [ 1.0,  0.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0],
+    [ 1.0,  0.0,  1.0,  1.0,  1.0,  0.0,  1.0,  1.0],
+    [ 1.0,  1.0,  1.0,  1.0,  0.0,  1.0,  0.0,  1.0],
+    [ 1.0,  1.0,  1.0,  0.0,  1.0,  1.0,  1.0,  1.0],
+    [ 1.0,  1.0,  0.0,  1.0,  1.0,  1.0,  1.0,  1.0],
+    [ 1.0,  1.0,  1.0,  0.0,  1.0,  0.0,  0.0,  0.0],
+    [ 1.0,  1.0,  1.0,  0.0,  1.0,  1.0,  1.0,  1.0],
+    [ 1.0,  1.0,  1.0,  1.0,  0.0,  1.0,  1.0,  1.0]
+]
+get_shortest_path(maze1)
+#train_(maze1)
