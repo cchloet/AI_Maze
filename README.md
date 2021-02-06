@@ -1,1 +1,2 @@
-# AI_Maze final capstone project for fall 2020
+# AI_Maze 2020
+AI will manuver through saved maze
